@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>MPU Duty Roster | Tuesday–Thursday</title>
+<style>
+    :root {
+      color-scheme: light;
+      --ink: #182334;
+      --muted: #526174;
+      --line: #dbe3ed;
+      --surface: #ffffff;
+      --canvas: #f3f6fa;
+      --blue: #2457ad;
+      --blue-soft: #eaf1ff;
+      --purple: #7041a9;
+      --purple-soft: #f3ecff;
+      --teal: #087b72;
+      --teal-soft: #e4f6f2;
+      --orange: #a34d09;
+      --orange-soft: #fff2df;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font: 16px/1.55 "Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+    }
+    .page { max-width: 1120px; margin: 0 auto; padding: 38px 22px 60px; }
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 0; font-size: clamp(28px, 4vw, 42px); line-height: 1.2; }
+    .subtitle { max-width: 750px; margin: 12px 0 0; color: var(--muted); }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 26px 0 30px;
+    }
+    .rationale {
+      padding: 18px 21px;
+      border: 1px solid #bfd3f5;
+      border-radius: 16px;
+      background: #edf4ff;
+      color: #27466c;
+    }
+    .rationale strong { display: block; margin-bottom: 4px; color: #183e73; }
+    .rationale p { margin: 0; }
+    .rationale summary { cursor: pointer; font-weight: 800; color: #183e73; }
+    .rationale[open] p { margin-top: 8px; }
+    .metric {
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface);
+      box-shadow: 0 4px 16px rgb(30 55 90 / 4%);
+    }
+    .metric strong { display: block; font-size: 27px; line-height: 1.15; }
+    .metric span { display: block; margin-top: 5px; color: var(--muted); font-size: 13px; }
+    .section-title { margin: 34px 0 16px; font-size: 23px; }
+    .days { display: grid; gap: 19px; }
+    .day {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--surface);
+      box-shadow: 0 7px 24px rgb(30 55 90 / 5%);
+    }
+    .day-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 22px;
+    }
+    .day--tue .day-head { background: var(--blue-soft); color: var(--blue); }
+    .day--wed .day-head { background: var(--purple-soft); color: var(--purple); }
+    .day--thu .day-head { background: var(--teal-soft); color: var(--teal); }
+    .day-head h3 { margin: 0; font-size: 23px; }
+    .day-head span { font-size: 14px; font-weight: 700; }
+    .slot {
+      display: grid;
+      grid-template-columns: 176px minmax(0, 1fr) 58px;
+      align-items: center;
+      gap: 16px;
+      padding: 17px 22px;
+      border-top: 1px solid var(--line);
+    }
+    .slot time { display: block; font-size: 18px; font-weight: 800; white-space: nowrap; }
+    .slot small { display: block; color: var(--muted); font-size: 12px; }
+    .people { display: flex; flex-wrap: wrap; gap: 7px; }
+    .person {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #f8fafc;
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .person--skip { border-color: #efc28a; background: var(--orange-soft); color: #87410b; }
+    .person .flag { font-size: 11px; font-weight: 800; }
+    .count { justify-self: end; color: var(--muted); font-size: 13px; font-weight: 800; white-space: nowrap; }
+    .day-note { margin: 0; padding: 0 22px 18px; color: var(--muted); font-size: 13px; }
+    .days[hidden] { display: none; }
+    .grid-intro { margin: -4px 0 12px; color: var(--muted); font-size: 14px; }
+    .grid-scroll { overflow-x: auto; border-radius: 14px; box-shadow: 0 7px 24px rgb(30 55 90 / 6%); }
+    .schedule-matrix { width: 100%; min-width: 880px; table-layout: fixed; border-collapse: collapse; background: #fff; }
+    .schedule-matrix col.day-col { width: 88px; }
+    .schedule-matrix th, .schedule-matrix td { border: 1px solid #8c9cad; }
+    .schedule-matrix thead th {
+      position: relative;
+      height: 36px;
+      padding: 6px 9px;
+      background: #fff;
+      color: #314256;
+      font-size: 13px;
+      font-weight: 800;
+      text-align: left;
+    }
+    .schedule-matrix thead .end-hour { position: absolute; right: 8px; top: 6px; }
+    .schedule-matrix tbody th {
+      padding: 10px;
+      background: #f1f5f9;
+      font-size: 18px;
+      text-align: center;
+      vertical-align: middle;
+    }
+    .schedule-matrix tbody td { height: 158px; padding: 10px 11px; vertical-align: top; }
+    .schedule-matrix tbody tr.wednesday td { height: 185px; }
+    .schedule-matrix .range { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 850; }
+    .matrix-names span { display: block; overflow-wrap: anywhere; font-size: 14px; font-weight: 700; line-height: 1.35; }
+    .matrix-names span + span { margin-top: 3px; }
+    .matrix-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .matrix-tags span { display: inline-block; padding: 2px 8px; border-radius: 999px; background: rgb(255 255 255 / 70%); font-size: 11px; font-weight: 850; }
+    .matrix-tags .absence { background: #fff0d1; color: #804004; }
+    .matrix-tags .no-backup { background: #ffe1df; color: #8c2424; }
+    .standby-list { display: flex; flex-wrap: wrap; gap: 5px; }
+    .standby-list span { display: inline-block; padding: 3px 8px; border-radius: 999px; background: #eef4fb; font-size: 13px; font-weight: 650; }
+    .standby-list .short { background: #fff2dc; color: #87500e; }
+    .standby-table td:last-child { font-weight: 650; }
+    .no-standby { color: #a43636; font-weight: 800; }
+    .block-blue { background: #4da9d4; }
+    .block-salmon { background: #f4aa87; }
+    .block-sky { background: #b1d3f0; }
+    .block-peach { background: #f7ad8e; }
+    .block-green { background: #8bd36f; }
+    .block-deepblue { background: #5393d0; }
+    .block-palepeach { background: #f8c6af; }
+    .alert {
+      margin-top: 32px;
+      padding: 20px 22px;
+      border: 1px solid #efc28a;
+      border-left: 5px solid #dc8127;
+      border-radius: 16px;
+      background: var(--orange-soft);
+    }
+    .alert h2 { margin: 0 0 8px; color: var(--orange); font-size: 20px; }
+    .alert p { margin: 8px 0 0; }
+    .alert ul { margin: 10px 0 0; padding-left: 22px; }
+    .alert li + li { margin-top: 5px; }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface);
+    }
+    table { width: 100%; border-collapse: collapse; min-width: 650px; }
+    th, td { padding: 12px 16px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: #eef3f8; color: #34465c; font-size: 13px; }
+    tr:last-child td { border-bottom: 0; }
+    td:first-child { font-weight: 750; white-space: nowrap; }
+    td:last-child { font-weight: 750; }
+    .dash { color: #9ba7b7; }
+    .footnote { margin: 13px 0 0; color: var(--muted); font-size: 13px; }
+
+    @media (max-width: 760px) {
+      .page { padding: 25px 14px 48px; }
+      .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .slot { grid-template-columns: minmax(0, 1fr) auto; gap: 7px; padding: 15px 17px; }
+      .slot .people { grid-column: 1 / -1; grid-row: 2; }
+      .slot .count { grid-column: 2; grid-row: 1; }
+      .day-head { padding: 16px 17px; }
+      .day-note { padding: 0 17px 17px; }
+    }
+    @media print {
+      @page { size: landscape; margin: 11mm; }
+      body { background: white; }
+      .page { max-width: none; padding: 0; }
+      .day, .metric, .table-wrap { box-shadow: none; break-inside: avoid; }
+      .alert { break-inside: avoid; }
+      .section-title { margin-top: 22px; }
+      .grid-scroll { overflow: visible; box-shadow: none; }
+      .schedule-matrix { min-width: 0; }
+      .schedule-matrix tbody td { height: 112px; }
+      .schedule-matrix tbody tr.wednesday td { height: 138px; }
+    }
+  
+    .language-switch {
+      float: right;
+      margin-left: 16px;
+      padding: 8px 15px;
+      border: 1px solid #b7c8df;
+      border-radius: 999px;
+      background: #fff;
+      color: #2457ad;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .language-switch:hover { background: #eaf1ff; }
+    .language-switch:focus-visible { outline: 3px solid #2457ad; outline-offset: 2px; }
+    @media print { .language-switch { display: none; } }
+</style>
+</head>
+<body>
+<main class="page">
+<header><button aria-label="Switch to Chinese" aria-pressed="false" class="language-switch" id="language-switch" type="button">中文</button>
+<p class="eyebrow">MPU · Duty roster</p>
+<h1>MPU Duty Roster</h1>
+<p class="subtitle">Tuesday to Thursday, 10:00–16:00 daily. The MPU3206 lecturer allows students to miss that class; planned absence labels refer only to other classes.</p>
+</header>
+<div aria-label="Schedule summary" class="summary">
+<div class="metric"><strong>18 hours</strong><span>Full coverage across three days</span></div>
+<div class="metric"><strong>2–4 people</strong><span>On site at all times</span></div>
+<div class="metric"><strong>10 people</strong><span>Everyone has at least one shift</span></div>
+<div class="metric"><strong>1 class</strong><span>Planned absence from another class</span></div>
+</div>
+<details class="rationale">
+<summary>Why this schedule</summary>
+<p>After reviewing all timetables, AHMED is the only person free on Wednesday from 12:00 to 14:00; the other nine have classes. Keeping at least two people on site during that slot therefore requires one absence from a non-MPU class. This plan assigns that CIS3201 absence to Kisha and no other class is missed.</p>
+<p>This plan has four people on Wednesday from 10:00 to 12:00 and Thursday from 10:00 to 14:00, with at least two people at all other times. Everyone serves 4–6 hours in total, each visit lasts 2–4 continuous hours, and the plan uses 16 individual shifts and 48 person-hours. A 15-shift alternative exists if one person works six hours straight, but it would require ONG to cover all of Thursday from 10:00 to 16:00. This version keeps shifts shorter.</p>
+</details>
+<h2 class="section-title">Schedule Grid</h2>
+<p class="grid-intro">Each horizontal column represents one hour. A colored block shows one continuous slot and lists everyone on site.</p>
+<div aria-label="Tuesday to Thursday MPU duty schedule" class="grid-scroll" role="region" tabindex="0">
+<table class="schedule-matrix">
+<colgroup><col class="day-col"/><col span="6"/></colgroup>
+<thead>
+<tr>
+<th scope="col">Day</th>
+<th scope="col">10:00</th><th scope="col">11:00</th><th scope="col">12:00</th>
+<th scope="col">13:00</th><th scope="col">14:00</th><th scope="col">15:00 <span class="end-hour">16:00</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">Tuesday</th>
+<td class="block-blue" colspan="3">
+<span class="range">10:00–13:00</span>
+<div class="matrix-names"><span>ONG Gee Hong</span><span>HAY Zhi Hao</span></div>
+<div class="matrix-tags"><span>2 people</span><span>3 available for full slot</span></div>
+</td>
+<td class="block-salmon" colspan="3">
+<span class="range">13:00–16:00</span>
+<div class="matrix-names"><span>KISHOK</span><span>RAHUL</span></div>
+<div class="matrix-tags"><span>2 people</span><span>1 available for full slot</span></div>
+</td>
+</tr>
+<tr class="wednesday">
+<th scope="row">Wednesday</th>
+<td class="block-sky" colspan="2">
+<span class="range">10:00–12:00</span>
+<div class="matrix-names"><span>AHMED WASEEM</span><span>Kisha</span><span>HAY Zhi Hao</span><span>CHLOE</span></div>
+<div class="matrix-tags"><span>4 people</span><span>6 available for full slot</span><span>10:00–11:00 MPU3206 excused</span></div>
+</td>
+<td class="block-peach" colspan="2">
+<span class="range">12:00–14:00</span>
+<div class="matrix-names"><span>AHMED WASEEM</span><span>Kisha</span></div>
+<div class="matrix-tags"><span>2 people</span><span class="no-backup">0 available for full slot</span><span class="absence">Kisha: planned CIS3201 absence</span></div>
+</td>
+<td class="block-green" colspan="2">
+<span class="range">14:00–16:00</span>
+<div class="matrix-names"><span>KISHOK</span><span>RAHUL</span></div>
+<div class="matrix-tags"><span>2 people</span><span class="no-backup">0 available for full slot</span></div>
+</td>
+</tr>
+<tr>
+<th scope="row">Thursday</th>
+<td class="block-deepblue" colspan="4">
+<span class="range">10:00–14:00</span>
+<div class="matrix-names"><span>TYE YIJUN</span><span>CHLOE</span><span>JOCELYN</span><span>Meeta</span></div>
+<div class="matrix-tags"><span>4 people</span><span>3 available for full slot</span></div>
+</td>
+<td class="block-palepeach" colspan="2">
+<span class="range">14:00–16:00</span>
+<div class="matrix-names"><span>ONG Gee Hong</span><span>AHMED WASEEM</span></div>
+<div class="matrix-tags"><span>2 people</span><span class="no-backup">0 available for full slot</span></div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h2 class="section-title">Available Backups</h2>
+<p class="grid-intro">These people are available during the stated time but are not scheduled on site. Wednesday 10:00–11:00 counts the lecturer-approved MPU3206 absence as available. Yellow labels mark one-hour openings.</p>
+<div class="table-wrap">
+<table class="standby-table">
+<thead><tr><th scope="col">Day</th><th scope="col">Time</th><th scope="col">Available Backups</th><th scope="col">Count</th></tr></thead>
+<tbody>
+<tr><td>Tuesday</td><td>10:00–12:00</td><td><div class="standby-list"><span>TYE YIJUN</span><span>CHLOE</span><span>JOCELYN</span></div></td><td>3 people</td></tr>
+<tr><td>Tuesday</td><td>12:00–13:00</td><td><div class="standby-list"><span>KISHOK</span><span>RAHUL</span><span>TYE YIJUN</span><span>CHLOE</span><span>JOCELYN</span><span>AHMED WASEEM</span><span class="short">Kisha · only 1 hour</span><span class="short">Meeta · only 1 hour</span></div></td><td>8 people</td></tr>
+<tr><td>Tuesday</td><td>13:00–15:00</td><td><div class="standby-list"><span>AHMED WASEEM</span></div></td><td>1 person</td></tr>
+<tr><td>Tuesday</td><td>15:00–16:00</td><td><div class="standby-list"><span>AHMED WASEEM</span><span class="short">Kisha · only 1 hour</span><span class="short">Meeta · only 1 hour</span></div></td><td>3 people</td></tr>
+<tr><td>Wednesday</td><td>10:00–12:00</td><td><div class="standby-list"><span>ONG Gee Hong</span><span>KISHOK</span><span>RAHUL</span><span>TYE YIJUN</span><span>JOCELYN</span><span>Meeta</span></div></td><td>6 people</td></tr>
+<tr><td>Wednesday</td><td>12:00–14:00</td><td class="no-standby">No backup</td><td>0 people</td></tr>
+<tr><td>Wednesday</td><td>14:00–16:00</td><td class="no-standby">No backup</td><td>0 people</td></tr>
+<tr><td>Thursday</td><td>10:00–12:00</td><td><div class="standby-list"><span>ONG Gee Hong</span><span>AHMED WASEEM</span><span>Kisha</span></div></td><td>3 people</td></tr>
+<tr><td>Thursday</td><td>12:00–14:00</td><td><div class="standby-list"><span>ONG Gee Hong</span><span>KISHOK</span><span>RAHUL</span><span>HAY Zhi Hao</span><span>AHMED WASEEM</span><span>Kisha</span></div></td><td>6 people</td></tr>
+<tr><td>Thursday</td><td>14:00–16:00</td><td class="no-standby">No backup</td><td>0 people</td></tr>
+</tbody>
+</table>
+</div>
+<p class="footnote">There is no backup who can cover Wednesday 12:00–16:00 or Thursday 14:00–16:00 without missing another class. Backup names are available to step in; they are not scheduled on site.</p>
+<section aria-labelledby="skip-title" class="alert">
+<h2 id="skip-title">Class Conflict Notes</h2>
+<ul>
+<li><strong>MPU3206:</strong> The lecturer allows students to miss this class. AHMED WASEEM, Kisha, HAY Zhi Hao, and CHLOE attend the activity on Wednesday 10:00–11:00, so this does not count as a class skip.</li>
+<li><strong>Kisha:</strong> Her CIS3201 lecture on Wednesday 12:00–14:00 still conflicts with the activity. She is assigned to miss that full class.</li>
+</ul>
+<p>AHMED is the only person naturally free on Wednesday 12:00–14:00. With the current group, maintaining two people on site requires one person to miss another class. Only Kisha is assigned to do so in this plan.</p>
+</section>
+<h2 class="section-title">Shifts by Person</h2>
+<div class="table-wrap">
+<table>
+<thead><tr><th scope="col">Participant</th><th scope="col">Tuesday</th><th scope="col">Wednesday</th><th scope="col">Thursday</th><th scope="col">Total</th></tr></thead>
+<tbody>
+<tr><td>ONG Gee Hong</td><td>10:00–13:00</td><td class="dash">—</td><td>14:00–16:00</td><td>5 hours</td></tr>
+<tr><td>KISHOK</td><td>13:00–16:00</td><td>14:00–16:00</td><td class="dash">—</td><td>5 hours</td></tr>
+<tr><td>RAHUL</td><td>13:00–16:00</td><td>14:00–16:00</td><td class="dash">—</td><td>5 hours</td></tr>
+<tr><td>TYE YIJUN</td><td class="dash">—</td><td class="dash">—</td><td>10:00–14:00</td><td>4 hours</td></tr>
+<tr><td>CHLOE</td><td class="dash">—</td><td>10:00–12:00</td><td>10:00–14:00</td><td>6 hours</td></tr>
+<tr><td>JOCELYN</td><td class="dash">—</td><td class="dash">—</td><td>10:00–14:00</td><td>4 hours</td></tr>
+<tr><td>HAY Zhi Hao</td><td>10:00–13:00</td><td>10:00–12:00</td><td class="dash">—</td><td>5 hours</td></tr>
+<tr><td>AHMED WASEEM</td><td class="dash">—</td><td>10:00–14:00</td><td>14:00–16:00</td><td>6 hours</td></tr>
+<tr><td>Kisha</td><td class="dash">—</td><td>10:00–14:00 *</td><td class="dash">—</td><td>4 hours</td></tr>
+<tr><td>Meeta</td><td class="dash">—</td><td class="dash">—</td><td>10:00–14:00</td><td>4 hours</td></tr>
+</tbody>
+</table>
+</div>
+<p class="footnote">* This shift includes one planned absence from a class other than MPU3206; see the notes above. No calendar dates have been specified. This roster follows the recurring Tuesday–Thursday timetables.</p>
+</main>
+<script>
+  (() => {
+    const chinese = {
+    "MPU Duty Roster": "MPU 活动排班",
+    "Tuesday to Thursday, 10:00–16:00 daily. The MPU3206 lecturer allows students to miss that class; planned absence labels refer only to other classes.": "周二至周四，每天 10:00–16:00。MPU3206 的老师允许不去；“拟缺课”标签只标出其他课程的冲突。",
+    "18 hours": "18 小时",
+    "Full coverage across three days": "三天活动全程覆盖",
+    "2–4 people": "2–4 人",
+    "On site at all times": "每个时段现场人数",
+    "10 people": "10 人",
+    "Everyone has at least one shift": "每人至少参加一次",
+    "1 class": "1 次",
+    "Planned absence from another class": "拟缺席其他课程",
+    "Why this schedule": "查看排班取舍",
+    "After reviewing all timetables, AHMED is the only person free on Wednesday from 12:00 to 14:00; the other nine have classes. Keeping at least two people on site during that slot therefore requires one absence from a non-MPU class. This plan assigns that CIS3201 absence to Kisha and no other class is missed.": "重新核对全部课表后，周三 12:00–14:00 只有 AHMED 无课；其他 9 人都有课。因此在该时段至少安排 2 人的前提下，缺席 1 节非 MPU 课程是无法避免的。这版让 Kisha 缺席 CIS3201，且没有安排第二次缺课。",
+    "This plan has four people on Wednesday from 10:00 to 12:00 and Thursday from 10:00 to 14:00, with at least two people at all other times. Everyone serves 4–6 hours in total, each visit lasts 2–4 continuous hours, and the plan uses 16 individual shifts and 48 person-hours. A 15-shift alternative exists if one person works six hours straight, but it would require ONG to cover all of Thursday from 10:00 to 16:00. This version keeps shifts shorter.": "这版周三 10:00–12:00 和周四 10:00–14:00 各安排 4 人，其余时段至少 2 人；10 人每人累计 4–6 小时，每次到场连续 2–4 小时，共 16 段个人班次、48 人时。若允许一人连续值班 6 小时，存在仅 15 段个人班次的替代排法，但需要 ONG 周四 10:00–16:00 全程值班。考虑到轮班体验，保留目前这版。",
+    "Schedule Grid": "课表式排班图",
+    "Each horizontal column represents one hour. A colored block shows one continuous slot and lists everyone on site.": "横向每格代表 1 小时；同色格子连成一个时段。格子内列出该时段所有现场人员。",
+    "Day": "日期",
+    "Tuesday": "周二",
+    "Wednesday": "周三",
+    "Thursday": "周四",
+    "2 people": "2 人",
+    "3 people": "3 人",
+    "4 people": "4 人",
+    "6 people": "6 人",
+    "8 people": "8 人",
+    "1 person": "1 人",
+    "0 people": "0 人",
+    "0 available for full slot": "整段备用 0 人",
+    "1 available for full slot": "整段备用 1 人",
+    "3 available for full slot": "整段备用 3 人",
+    "6 available for full slot": "整段备用 6 人",
+    "10:00–11:00 MPU3206 excused": "10:00–11:00 MPU3206 可不去",
+    "Kisha: planned CIS3201 absence": "Kisha CIS3201 拟缺课",
+    "Available Backups": "可备用人员",
+    "These people are available during the stated time but are not scheduled on site. Wednesday 10:00–11:00 counts the lecturer-approved MPU3206 absence as available. Yellow labels mark one-hour openings.": "以下人员在该时段可用、且没有排在现场。周三 10:00–11:00 按老师允许不参加 MPU3206 计算；黄色标记表示只有一小时空档。",
+    "Time": "时间",
+    "Count": "人数",
+    "Kisha · only 1 hour": "Kisha · 仅 1 小时",
+    "Meeta · only 1 hour": "Meeta · 仅 1 小时",
+    "No backup": "无备用",
+    "There is no backup who can cover Wednesday 12:00–16:00 or Thursday 14:00–16:00 without missing another class. Backup names are available to step in; they are not scheduled on site.": "周三 12:00–16:00 与周四 14:00–16:00 没有无需缺席课程的备用人选。备用名单表示可临时补位，尚未安排他们到场。",
+    "Class Conflict Notes": "课程安排说明",
+    "The lecturer allows students to miss this class. AHMED WASEEM, Kisha, HAY Zhi Hao, and CHLOE attend the activity on Wednesday 10:00–11:00, so this does not count as a class skip.": "老师允许不去。AHMED WASEEM、Kisha、HAY Zhi Hao 和 CHLOE 周三 10:00–11:00 参加活动，不计为翘课。",
+    "Her CIS3201 lecture on Wednesday 12:00–14:00 still conflicts with the activity. She is assigned to miss that full class.": "周三 12:00–14:00 的 CIS3201 讲课仍有冲突，拟缺席这一整节。",
+    "AHMED is the only person naturally free on Wednesday 12:00–14:00. With the current group, maintaining two people on site requires one person to miss another class. Only Kisha is assigned to do so in this plan.": "周三 12:00–14:00 只有 AHMED 自然有空；要保持至少 2 人在场，现有名单仍需 1 人缺席一节其他课程。这版只安排 Kisha 缺席一次。",
+    "Shifts by Person": "按人查看",
+    "Participant": "参与者",
+    "Total": "合计",
+    "4 hours": "4 小时",
+    "5 hours": "5 小时",
+    "6 hours": "6 小时",
+    "* This shift includes one planned absence from a class other than MPU3206; see the notes above. No calendar dates have been specified. This roster follows the recurring Tuesday–Thursday timetables.": "* 表示该班次包含一次非 MPU3206 课程的拟缺席，详情见上方说明。未指定具体日期；本表按周二至周四的固定课表编排。",
+    "MPU · Duty roster": "MPU · 活动排班"
+};
+    const nodes = [];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node.parentElement?.tagName === 'SCRIPT') continue;
+      const english = node.nodeValue.trim();
+      if (Object.prototype.hasOwnProperty.call(chinese, english)) {
+        nodes.push({ node, english, chinese: chinese[english] });
+      }
+    }
+    const button = document.getElementById('language-switch');
+    let isChinese = false;
+    button.addEventListener('click', () => {
+      isChinese = !isChinese;
+      for (const entry of nodes) {
+        const original = entry.node.nodeValue;
+        const leading = original.match(/^\s*/)[0];
+        const trailing = original.match(/\s*$/)[0];
+        entry.node.nodeValue = leading + (isChinese ? entry.chinese : entry.english) + trailing;
+      }
+      document.documentElement.lang = isChinese ? 'zh-CN' : 'en';
+      document.title = isChinese ? 'MPU 活动排班｜周二至周四' : 'MPU Duty Roster | Tuesday–Thursday';
+      document.querySelector('.summary').setAttribute('aria-label', isChinese ? '排班概况' : 'Schedule summary');
+      document.querySelector('.grid-scroll').setAttribute('aria-label', isChinese ? '周二至周四 MPU 活动时间表' : 'Tuesday to Thursday MPU duty schedule');
+      button.textContent = isChinese ? 'English' : '中文';
+      button.setAttribute('aria-label', isChinese ? '切换为英文' : 'Switch to Chinese');
+      button.setAttribute('aria-pressed', String(isChinese));
+    });
+  })();
+</script></body>
+</html>
+
